@@ -10,7 +10,7 @@ run_stage()
     cd $blddir/$target/$stage/
 
     if ! [[ -e Makefile ]] ; then
-        "${distdir}binutils-${binutils_version}/configure" \
+        if !"${distdir}binutils-${binutils_version}/configure" \
             --prefix="${bindir}${target}/" \
             --target="$triplet" \
             --with-sysroot="${bindir}${target}" \
@@ -22,8 +22,14 @@ run_stage()
             --enable-plugins \
             --with-zlib=yes \
             --disable-nls \
-			${binutils_extra}
-    fi
-    make all -j$cpucount
-    make install
+			${binutils_extra} ; then
+			exit 2
+		fi
+	fi
+	if ! make all -j$cpucount; then
+		exit 3
+	fi
+    if ! make install; then
+		exit 4
+	fi
 }

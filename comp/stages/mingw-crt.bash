@@ -10,13 +10,19 @@ run_stage()
     cd $blddir/$target/$stage/
 
     if ! [[ -e Makefile ]] ; then
-        "${distdir}mingw-w64-v${mingw_version}/configure" \
+        if "${distdir}mingw-w64-v${mingw_version}/configure" \
             --prefix="${bindir}${target}/" \
             --target="$triplet" \
             --with-sysroot="${bindir}${target}" \
-            ${mingw_extra}
+            ${mingw_extra} ; then
+				exit 2
+		fi
     fi
-    make all -j$cpucount
-    make install
+    if make all -j$cpucount ; then
+		exit 3
+	fi
+    if make install ; then
+		exit 4
+	fi
 }
 

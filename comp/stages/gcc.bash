@@ -10,7 +10,7 @@ run_stage()
     cd $blddir/$target/$stage/
 
     if ! [[ -e Makefile ]] ; then
-        if ! [[ "${distdir}gcc-${gcc_version}/configure" \
+        if ! "${distdir}gcc-${gcc_version}/configure" \
             --prefix="${bindir}${target}/" \
             --target="$triplet" \
             --with-sysroot="${bindir}${target}" \
@@ -21,15 +21,15 @@ run_stage()
             --disable-nls \
             --disable-werror \
 			--disable-shared \
-            ${gcc_extra} ]]; then
+            ${gcc_extra} ; then
 				exit 2
 		fi
 			
     fi
-    if ! [[ make all -j$cpucount ]]; then
+    if ! make all -j$cpucount ; then
 		exit 3
 	fi
-	if ! [[ make install.all ]]; then
+	if ! make install.all ; then
 		exit 4
 	fi
 }
