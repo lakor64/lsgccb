@@ -10,7 +10,7 @@ run_stage()
     cd $blddir/$target/$stage/
 
     if ! [[ -e Makefile ]] ; then
-        if "${distdir}mingw-w64-v${mingw_version}/configure" \
+        if ! "${distdir}mingw-w64-v${mingw_version}/configure" \
             --prefix="${bindir}${target}/" \
             --target="$triplet" \
             --with-sysroot="${bindir}${target}" \

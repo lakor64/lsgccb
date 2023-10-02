@@ -10,7 +10,7 @@ run_stage()
     cd $blddir/$target/$stage/
 
     if ! [[ -e Makefile ]] ; then
-        if !"${distdir}binutils-${binutils_version}/configure" \
+        if ! "${distdir}binutils-${binutils_version}/configure" \
             --prefix="${bindir}${target}/" \
             --target="$triplet" \
             --with-sysroot="${bindir}${target}" \
