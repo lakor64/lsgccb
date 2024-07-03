@@ -1,0 +1,379 @@
+*** bfd/coff-riscv64.c	Mon Jan 29 01:00:00 2024
+--- bfd/coff-riscv64.c	Wed Jul  3 16:03:39 2024
+***************
+*** 25,42 ****
+  #include "coff/internal.h"
+  #include "coff/pe.h"
+  #include "libcoff.h"
+  #include "libiberty.h"
+  
+  #define COFF_DEFAULT_SECTION_ALIGNMENT_POWER  2
+  
+  #ifndef bfd_pe_print_pdata
+  #define bfd_pe_print_pdata      NULL
+  #endif
+  
+! #define RTYPE2HOWTO(cache_ptr, dst)             \
+!   (cache_ptr)->howto = NULL
+  
+  /* Return TRUE if this relocation should
+     appear in the output .reloc section.  */
+  
+  static bool
+--- 25,298 ----
+  #include "coff/internal.h"
+  #include "coff/pe.h"
+  #include "libcoff.h"
+  #include "libiberty.h"
+  
++ #include "opcode/riscv.h"
++ 
++ /* null relocation */
++ static const reloc_howto_type riscv_reloc_absolute = HOWTO(IMAGE_REL_RISCV64_ABSOLUTE, /* type */
++     0, /* rightshift */
++     0, /* size */
++     0, /* bitsize */
++     false, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_dont, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_ABSOLUTE", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     0, /* dst_mask */
++     false); /* pcrel_offset */
++ 
++ /* 12-bit PC-relative branch offset.  */
++ static const reloc_howto_type riscv_reloc_howto_pc = HOWTO(IMAGE_REL_RISCV64_PC, /* type */
++     0, /* rightshift */
++     4, /* size */
++     32, /* bitsize */
++     true, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_signed, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_PC", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     ENCODE_BTYPE_IMM (-1U), /* dst_mask */
++     true); /* pcrel_offset */
++ 
++ /* 32-bit PC-relative function call (AUIPC/JALR).  */
++ static const reloc_howto_type riscv_reloc_howto_jalr = HOWTO (IMAGE_REL_RISCV64_JALR, /* type */
++     0, /* rightshift */
++     8, /* size */
++     64, /* bitsize */
++     true, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_dont, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_JALR", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     ENCODE_UTYPE_IMM (-1U) | ((bfd_vma) ENCODE_ITYPE_IMM (-1U) << 32), /* dst_mask */
++     true); /* pcrel_offset */
++ 
++ /* High 20 bits of 32-bit absolute address.  */
++ static const reloc_howto_type riscv_reloc_howto_high20 = HOWTO (IMAGE_REL_RISCV64_HIGH20, /* type */
++     0, /* rightshift */
++     4, /* size */
++     32, /* bitsize */
++     false, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_dont, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_HIGH20", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     ENCODE_UTYPE_IMM (-1U), /* dst_mask */
++     false); /* pcrel_offset */
++ 
++ /* High 12 bits of 32-bit load or add.  */
++ static const reloc_howto_type riscv_reloc_howto_low12i = HOWTO (IMAGE_REL_RISCV64_LOW12I, /* type */
++     0, /* rightshift */
++     4, /* size */
++     32, /* bitsize */
++     false, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_dont, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_LOW12I", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     ENCODE_ITYPE_IMM (-1U), /* dst_mask */
++     false); /* pcrel_offset */
++ 
++ /* High 12 bits of 32-bit store.  */
++ static const reloc_howto_type riscv_reloc_howto_low12s = HOWTO (IMAGE_REL_RISCV64_LOW12S, /* type */
++     0, /* rightshift */
++     4, /* size */
++     32, /* bitsize */
++     false, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_dont, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_LOW12S", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     ENCODE_STYPE_IMM (-1U), /* dst_mask */
++     false); /* pcrel_offset */
++  
++  /* High 20 bits of 32-bit absolute address.  */
++ static const reloc_howto_type riscv_reloc_howto_high20_pcrel = HOWTO (IMAGE_REL_RISCV64_REL_HIGH20, /* type */
++     0, /* rightshift */
++     4, /* size */
++     32, /* bitsize */
++     false, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_dont, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_REL_HIGH20", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     ENCODE_UTYPE_IMM (-1U), /* dst_mask */
++     false); /* pcrel_offset */
++ 
++ /* Low 12 bits of a 32-bit PC-relative load or add.  */
++ static const reloc_howto_type riscv_reloc_howto_low12i_pcrel = HOWTO (IMAGE_REL_RISCV64_REL_LOW12I, /* type */
++     0, /* rightshift */
++     4, /* size */
++     32, /* bitsize */
++     false, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_dont, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_REL_LOW12I", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     ENCODE_ITYPE_IMM (-1U), /* dst_mask */
++     false); /* pcrel_offset */
++ 
++ /* High 12 bits of 32-bit store.  */
++ static const reloc_howto_type riscv_reloc_howto_low12s_pcrel = HOWTO (IMAGE_REL_RISCV64_REL_LOW12S, /* type */
++     0, /* rightshift */
++     4, /* size */
++     32, /* bitsize */
++     true, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_dont, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_REL_LOW12S", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     ENCODE_STYPE_IMM (-1U), /* dst_mask */
++     false); /* pcrel_offset */
++ 
++ /* The paired relocation may be relaxed.  */
++ static const reloc_howto_type riscv_reloc_relax = HOWTO(IMAGE_REL_RISCV64_RELAX, /* type */
++     0, /* rightshift */
++     0, /* size */
++     0, /* bitsize */
++     false, /* pc_relative */
++     0, /* bitpos */
++     complain_overflow_signed, /* complain_on_overflow */
++     NULL, /* special_function */
++     "IMAGE_REL_RISCV64_RELAX", /* name */
++     false, /* partial_inplace */
++     0, /* src_mask */
++     0, /* dst_mask */
++     false); /* pcrel_offset */
++ 
++ static const reloc_howto_type* const riscv_howto_table[] = {
++     /* https://github.com/dotnet/diagnostics/blob/1341d2c799a10f5cd1e748f90d59a63bb9e1b3f4/src/shared/pal/inc/rt/ntimage.h#L1041 */
++     &riscv_reloc_howto_pc,
++     &riscv_reloc_howto_jalr,
++     /* custom relocs */
++     &riscv_reloc_howto_high20,
++     &riscv_reloc_howto_low12i,
++     &riscv_reloc_howto_low12s,
++     &riscv_reloc_howto_high20_pcrel,
++     &riscv_reloc_howto_low12i_pcrel,
++     &riscv_reloc_howto_low12s_pcrel,
++     &riscv_reloc_absolute,
++     &riscv_reloc_relax,
++ };
++ 
++ #ifndef NUM_ELEM
++ #define NUM_ELEM(a) ((sizeof (a)) / sizeof ((a)[0]))
++ #endif
++  
++ #define NUM_RELOCS NUM_ELEM (riscv_howto_table)
++  
++ #define coff_bfd_reloc_type_lookup		coff_riscv_reloc_type_lookup
++ #define coff_bfd_reloc_name_lookup		coff_riscv_reloc_name_lookup
++  
++ static reloc_howto_type *
++ coff_riscv_reloc_type_lookup (bfd * abfd ATTRIBUTE_UNUSED, bfd_reloc_code_real_type code)
++  {
++    switch (code)
++    {
++    case BFD_RELOC_12_PCREL:
++      return &riscv_reloc_howto_pc;
++    case BFD_RELOC_RISCV_CALL:
++      return &riscv_reloc_howto_jalr;
++    case BFD_RELOC_RISCV_LO12_S:
++      return &riscv_reloc_howto_low12s;
++    case BFD_RELOC_RISCV_LO12_I:
++      return &riscv_reloc_howto_low12i;
++   case BFD_RELOC_RISCV_HI20:
++      return &riscv_reloc_howto_high20;
++    case BFD_RELOC_RISCV_PCREL_LO12_S:
++      return &riscv_reloc_howto_low12s_pcrel;
++    case BFD_RELOC_RISCV_PCREL_LO12_I:
++      return &riscv_reloc_howto_low12i_pcrel;
++    case BFD_RELOC_RISCV_PCREL_HI20:
++      return &riscv_reloc_howto_high20_pcrel;
++    case BFD_RELOC_RISCV_RELAX:
++       return &riscv_reloc_relax;
++    default:
++      BFD_FAIL ();
++      return NULL;
++    }
++  
++    return NULL;
++  }
++  
++ static reloc_howto_type *
++  coff_riscv_reloc_name_lookup (bfd *abfd ATTRIBUTE_UNUSED,
++  			    const char *r_name)
++  {
++  	unsigned int i;
++  
++  	for (i = 0; i < NUM_RELOCS; i++)
++  	  if (riscv_howto_table[i]->name != NULL
++  	    && strcasecmp (riscv_howto_table[i]->name, r_name) == 0)
++  	    return riscv_howto_table[i];
++  
++    return NULL;
++  }
++  
++ static reloc_howto_type *
++  coff_riscv_rtype_lookup (unsigned int code)
++  {
++    switch (code)
++    {
++      case IMAGE_REL_RISCV64_ABSOLUTE:
++        return &riscv_reloc_absolute;
++      case IMAGE_REL_RISCV64_PC:
++        return &riscv_reloc_howto_pc;
++      case IMAGE_REL_RISCV64_JALR:
++        return &riscv_reloc_howto_jalr;
++      case IMAGE_REL_RISCV64_HIGH20:
++        return &riscv_reloc_howto_high20;
++      case IMAGE_REL_RISCV64_LOW12I:
++        return &riscv_reloc_howto_low12i;
++      case IMAGE_REL_RISCV64_LOW12S:
++        return &riscv_reloc_howto_low12s;
++      case IMAGE_REL_RISCV64_REL_HIGH20:
++        return &riscv_reloc_howto_high20_pcrel;
++      case IMAGE_REL_RISCV64_REL_LOW12I:
++        return &riscv_reloc_howto_low12i_pcrel;
++      case IMAGE_REL_RISCV64_REL_LOW12S:
++        return &riscv_reloc_howto_low12s_pcrel;
++      case IMAGE_REL_RISCV64_RELAX:
++        return &riscv_reloc_relax;
++      default:
++        BFD_FAIL ();
++        return NULL;
++    }
++  
++    return NULL;
++ }
++ 
+  #define COFF_DEFAULT_SECTION_ALIGNMENT_POWER  2
+  
+  #ifndef bfd_pe_print_pdata
+  #define bfd_pe_print_pdata      NULL
+  #endif
+  
+! #define RTYPE2HOWTO(cache_ptr, dst)				\
+!    ((cache_ptr)->howto =	coff_riscv_rtype_lookup((dst)->r_type))
+! 
+! #define SELECT_RELOC(x,howto) { (x).r_type = (howto)->type; }
+  
+  /* Return TRUE if this relocation should
+     appear in the output .reloc section.  */
+  
+  static bool
+*** bfd/peicode.h	Mon Jan 29 01:00:00 2024
+--- bfd/peicode.h	Wed Jul  3 03:50:19 2024
+***************
+*** 195,204 ****
+--- 195,206 ----
+  # define coff_swap_filehdr_out _bfd_XX_only_swap_filehdr_out
+  #elif defined COFF_WITH_pex64
+  # define coff_swap_filehdr_out _bfd_pex64_only_swap_filehdr_out
+  #elif defined COFF_WITH_pep
+  # define coff_swap_filehdr_out _bfd_pep_only_swap_filehdr_out
++ #elif defined COFF_WITH_peRiscV64
++ # define coff_swap_filehdr_out _bfd_XX_only_swap_filehdr_out
+  #else
+  # define coff_swap_filehdr_out _bfd_pe_only_swap_filehdr_out
+  #endif
+  
+  static void
+***************
+*** 766,781 ****
+    },
+  
+  #endif
+  
+  #ifdef RISCV64MAGIC
+!   /* We don't currently support jumping to DLLs, so if
+!      someone does try emit a runtime trap.  Through EBREAK.  */
+!   { RISCV64MAGIC,
+!     { 0x73, 0x00, 0x10, 0x00 },
+!     4, 0
+!   },
+  
+  #endif
+  
+    { 0, { 0 }, 0, 0 }
+  };
+--- 768,786 ----
+    },
+  
+  #endif
+  
+  #ifdef RISCV64MAGIC
+!    /* relocation code needs to be dispatched in 2 stages
+!      therefore offset is 0
+!    */
+!    { RISCV64MAGIC,
+!      {
+!        0x97, 0x03, 0x00, 0x00, /* auipc t2, imm20 */
+!        0x67, 0x80, 0x03, 0x00, /* jalr zero, t2, imm12 */
+!      }, 0, 0
+!    },
+  
+  #endif
+  
+    { 0, { 0 }, 0, 0 }
+  };
+***************
+*** 1033,1042 ****
+--- 1038,1061 ----
+  
+        /* Copy in the jump code.  */
+        memcpy (text->contents, jtab[i].data, jtab[i].size);
+  
+        /* Create a reloc for the data in the text section.  */
++ #if defined(RISCV64MAGIC)
++        if (magic == RISCV64MAGIC
++          )
++    {
++        pe_ILF_make_a_symbol_reloc (&vars, (bfd_vma) 0, BFD_RELOC_12_PCREL,
++  				      (struct bfd_symbol **) imp_sym,
++  				      imp_index);
++  	  pe_ILF_make_a_reloc (&vars, (bfd_vma) 0, BFD_RELOC_RISCV_JMP, text);
++  	  pe_ILF_make_a_symbol_reloc (&vars, (bfd_vma) 4, BFD_RELOC_RISCV_JMP,
++  				      (struct bfd_symbol **) imp_sym,
++  				      imp_index);
++    }
++        else
++  #endif
+  #ifdef MIPS_ARCH_MAGIC_WINCE
+        if (magic == MIPS_ARCH_MAGIC_WINCE)
+  	{
+  	  pe_ILF_make_a_symbol_reloc (&vars, (bfd_vma) 0, BFD_RELOC_HI16_S,
+  				      (struct bfd_symbol **) imp_sym,

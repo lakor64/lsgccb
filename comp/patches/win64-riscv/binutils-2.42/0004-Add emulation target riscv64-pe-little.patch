@@ -1,0 +1,187 @@
+*** /dev/null	Thu Jan  1 01:00:00 1970
+--- ld/emulparams/riscv64pe.sh	Wed Jul  3 16:35:37 2024
+***************
+*** 0 ****
+--- 1,9 ----
++ ARCH="riscv"
++ SCRIPT_NAME=pep
++ OUTPUT_FORMAT="pei-riscv64-little"
++ RELOCATEABLE_OUTPUT_FORMAT="pe-riscv64-little"
++ TEMPLATE_NAME=pep
++ SUBSYSTEM=PE_DEF_SUBSYSTEM
++ INITIAL_SYMBOL_CHAR=\"_\"
++ TARGET_PAGE_SIZE=0x1000
++ GENERATE_AUTO_IMPORT_SCRIPT=1
+*** ld/emultempl/pep.em	Mon Jan 29 01:00:00 2024
+--- ld/emultempl/pep.em	Wed Jul  3 16:41:25 2024
+***************
+*** 52,61 ****
+--- 52,63 ----
+  #define COFF_WITH_peAArch64
+  #elif defined TARGET_IS_arm64pe
+  #define COFF_WITH_peAArch64
+  #elif defined (TARGET_IS_i386pep)
+  #define COFF_WITH_pex64
++ #elif defined (TARGET_IS_riscv64pe)
++ #define COFF_WITH_peRiscV64
+  #endif
+  
+  #include "sysdep.h"
+  #include "bfd.h"
+  #include "bfdlink.h"
+***************
+*** 78,88 ****
+  EOF
+  
+  case ${target} in
+    x86_64-*-mingw* | x86_64-*-pe | x86_64-*-pep | x86_64-*-cygwin | \
+    i[3-7]86-*-mingw32* | i[3-7]86-*-cygwin* | i[3-7]86-*-winnt | i[3-7]86-*-pe | \
+!   aarch64-*-mingw* | aarch64-*-pe* )
+  fragment <<EOF
+  #include "pdb.h"
+  EOF
+      ;;
+  esac
+--- 80,91 ----
+  EOF
+  
+  case ${target} in
+    x86_64-*-mingw* | x86_64-*-pe | x86_64-*-pep | x86_64-*-cygwin | \
+    i[3-7]86-*-mingw32* | i[3-7]86-*-cygwin* | i[3-7]86-*-winnt | i[3-7]86-*-pe | \
+!   aarch64-*-mingw* | aarch64-*-pe* | \
+!   riscv64-*-mingw* | riscv64-*-pe* )
+  fragment <<EOF
+  #include "pdb.h"
+  EOF
+      ;;
+  esac
+***************
+*** 95,104 ****
+--- 98,109 ----
+  # include "coff/x86_64.h"
+  #elif defined TARGET_IS_aarch64pe
+  # include "coff/aarch64.h"
+  #elif defined TARGET_IS_arm64pe
+  # include "coff/aarch64.h"
++ #elif defined TARGET_IS_riscv64pe
++ # include "coff/riscv64.h"
+  #endif
+  #include "coff/pe.h"
+  
+  /* FIXME: These are BFD internal header files, and we should not be
+     using it here.  */
+***************
+*** 120,139 ****
+  #if PE_DEF_SECTION_ALIGNMENT != ${OVERRIDE_SECTION_ALIGNMENT:-PE_DEF_SECTION_ALIGNMENT}
+  #undef  PE_DEF_SECTION_ALIGNMENT
+  #define PE_DEF_SECTION_ALIGNMENT ${OVERRIDE_SECTION_ALIGNMENT}
+  #endif
+  
+! #if defined(TARGET_IS_i386pep) || defined(COFF_WITH_peAArch64)
+  #define DLL_SUPPORT
+  #endif
+  
+  #define DEFAULT_DLL_CHARACTERISTICS	(${cygwin_behavior} ? 0 : \
+  					   IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE \
+  					 | IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA \
+    					 | IMAGE_DLL_CHARACTERISTICS_NX_COMPAT)
+  
+! #if defined(TARGET_IS_i386pep) || defined(COFF_WITH_peAArch64) || ! defined(DLL_SUPPORT)
+  #define	PE_DEF_SUBSYSTEM		IMAGE_SUBSYSTEM_WINDOWS_CUI
+  #undef NT_EXE_IMAGE_BASE
+  #define NT_EXE_IMAGE_BASE \
+    ((bfd_vma) (${move_default_addr_high} ? 0x100400000LL \
+  					: 0x140000000LL))
+--- 125,144 ----
+  #if PE_DEF_SECTION_ALIGNMENT != ${OVERRIDE_SECTION_ALIGNMENT:-PE_DEF_SECTION_ALIGNMENT}
+  #undef  PE_DEF_SECTION_ALIGNMENT
+  #define PE_DEF_SECTION_ALIGNMENT ${OVERRIDE_SECTION_ALIGNMENT}
+  #endif
+  
+! #if defined(TARGET_IS_i386pep) || defined(COFF_WITH_peAArch64) || defined(COFF_WITH_peRiscV64)
+  #define DLL_SUPPORT
+  #endif
+  
+  #define DEFAULT_DLL_CHARACTERISTICS	(${cygwin_behavior} ? 0 : \
+  					   IMAGE_DLL_CHARACTERISTICS_DYNAMIC_BASE \
+  					 | IMAGE_DLL_CHARACTERISTICS_HIGH_ENTROPY_VA \
+    					 | IMAGE_DLL_CHARACTERISTICS_NX_COMPAT)
+  
+! #if defined(TARGET_IS_i386pep) || defined(COFF_WITH_peAArch64) || defined(COFF_WITH_peRiscV64) || ! defined(DLL_SUPPORT)
+  #define	PE_DEF_SUBSYSTEM		IMAGE_SUBSYSTEM_WINDOWS_CUI
+  #undef NT_EXE_IMAGE_BASE
+  #define NT_EXE_IMAGE_BASE \
+    ((bfd_vma) (${move_default_addr_high} ? 0x100400000LL \
+  					: 0x140000000LL))
+***************
+*** 1657,1674 ****
+       compilation time to go through the roof if there are many undefined
+       symbols in the link, so it needs to be run after auto-import.  */
+    if (pep_enable_stdcall_fixup) /* -1=warn or 1=enable */
+      pep_fixup_stdcalls ();
+  
+! #if !defined(TARGET_IS_i386pep) && !defined(COFF_WITH_peAArch64)
+    if (bfd_link_pic (&link_info))
+  #else
+    if (!bfd_link_relocatable (&link_info))
+  #endif
+      pep_dll_build_sections (link_info.output_bfd, &link_info);
+  
+! #if !defined(TARGET_IS_i386pep) && !defined(COFF_WITH_peAArch64)
+    else
+      pep_exe_build_sections (link_info.output_bfd, &link_info);
+  #endif
+  #endif /* DLL_SUPPORT */
+  
+--- 1662,1679 ----
+       compilation time to go through the roof if there are many undefined
+       symbols in the link, so it needs to be run after auto-import.  */
+    if (pep_enable_stdcall_fixup) /* -1=warn or 1=enable */
+      pep_fixup_stdcalls ();
+  
+! #if !defined(TARGET_IS_i386pep) && !defined(COFF_WITH_peAArch64) && !defined(COFF_WITH_peRiscV64)
+    if (bfd_link_pic (&link_info))
+  #else
+    if (!bfd_link_relocatable (&link_info))
+  #endif
+      pep_dll_build_sections (link_info.output_bfd, &link_info);
+  
+! #if !defined(TARGET_IS_i386pep) && !defined(COFF_WITH_peAArch64) && !defined(COFF_WITH_peRiscV64)
+    else
+      pep_exe_build_sections (link_info.output_bfd, &link_info);
+  #endif
+  #endif /* DLL_SUPPORT */
+  
+***************
+*** 1962,1971 ****
+--- 1967,1978 ----
+  #ifdef DLL_SUPPORT
+  #ifdef TARGET_IS_i386pep
+    pep_dll_id_target ("pei-x86-64");
+  #elif defined(COFF_WITH_peAArch64)
+    pep_dll_id_target ("pei-aarch64-little");
++ #elif defined(COFF_WITH_peRiscV64)
++   pep_dll_id_target ("pei-riscv64-little");
+  #endif
+    if (pep_bfd_is_dll (entry->the_bfd))
+      return pep_implied_import_dll (entry->filename);
+  #endif
+    return false;
+*** ld/configure.tgt	Mon Jan 29 01:00:00 2024
+--- ld/configure.tgt	Wed Jul  3 16:12:53 2024
+***************
+*** 835,844 ****
+--- 835,847 ----
+  			;;
+  riscv64*-*-linux*)	targ_emul=elf64lriscv
+  			targ_extra_emuls="elf64lriscv_lp64f elf64lriscv_lp64 elf32lriscv elf32lriscv_ilp32f elf32lriscv_ilp32 elf64briscv elf64briscv_lp64f elf64briscv_lp64 elf32briscv elf32briscv_ilp32f elf32briscv_ilp32"
+  			targ_extra_libpath=$targ_extra_emuls
+  			;;
++ riscv64*-*-mingw*)	targ_emul=riscv64pe ;
++ 			targ_extra_ofiles="deffilep.o pep-dll-riscv64.o pe-dll.o pdb.o"
++ 			;;
+  riscv64be*-*-*)		targ_emul=elf64briscv
+  			targ_extra_emuls="elf32briscv elf64lriscv elf32lriscv"
+  			targ_extra_libpath=$targ_extra_emuls
+  			;;
+  riscv64*-*-*)		targ_emul=elf64lriscv

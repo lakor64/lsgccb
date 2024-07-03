@@ -1,0 +1,26 @@
+*** include/coff/riscv64.h	Mon Jan 29 01:00:00 2024
+--- include/coff/riscv64.h	Wed Jul  3 15:57:17 2024
+***************
+*** 59,64 ****
+--- 59,79 ----
+  };
+  
+  #define RELOC struct external_reloc
+  #define RELSZ 14
+  
++ /* RISC-V relocations types. */
++  
++  /* https://github.com/dotnet/diagnostics/blob/1341d2c799a10f5cd1e748f90d59a63bb9e1b3f4/src/shared/pal/inc/rt/ntimage.h#L1041 */
++ #define IMAGE_REL_RISCV64_PC            0x0003
++ #define IMAGE_REL_RISCV64_JALR          0x0004
++ /* all this values are custom made and do not rapresent any specifications at all */
++ #define IMAGE_REL_RISCV64_HIGH20        0x0005
++ #define IMAGE_REL_RISCV64_REL_HIGH20    0x0006
++ #define IMAGE_REL_RISCV64_LOW12I        0x0007
++ #define IMAGE_REL_RISCV64_LOW12S        0x0008
++ #define IMAGE_REL_RISCV64_REL_LOW12I    0x0009
++ #define IMAGE_REL_RISCV64_REL_LOW12S    0x000A
++ #define IMAGE_REL_RISCV64_RELAX         0x0001
++ #define IMAGE_REL_RISCV64_ABSOLUTE      0x0000
++ 
+  #endif /* COFF_RISCV64_H */

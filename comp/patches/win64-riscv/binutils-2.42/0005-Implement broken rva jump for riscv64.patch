@@ -1,0 +1,122 @@
+*** ld/pe-dll.c	Mon Jan 29 01:00:00 2024
+--- ld/pe-dll.c	Wed Jul  3 16:34:28 2024
+***************
+*** 246,255 ****
+--- 246,256 ----
+  #define PE_ARCH_sh	 2
+  #define PE_ARCH_mips	 3
+  #define PE_ARCH_arm	 4
+  #define PE_ARCH_arm_wince 5
+  #define PE_ARCH_aarch64  6
++ #define PE_ARCH_riscv64  7
+  
+  /* Don't make it constant as underscore mode gets possibly overriden
+     by target or -(no-)leading-underscore option.  */
+  static pe_details_type pe_detail_list[] =
+  {
+***************
+*** 336,345 ****
+--- 337,355 ----
+      PE_ARCH_aarch64,
+      bfd_arch_aarch64,
+      false,
+      autofilter_symbollist_generic
+    },
++   {
++ 	  "pei-riscv64-little",
++ 	  "pe-riscv64-little",
++ 	  2, /* RISCV64_RVA */
++ 	  PE_ARCH_riscv64,
++ 	  bfd_arch_riscv,
++ 	  false,
++ 	  autofilter_symbollist_generic
++   },
+    { NULL, NULL, 0, 0, 0, false, NULL }
+  };
+  
+  static const pe_details_type *pe_details;
+  
+***************
+*** 2313,2322 ****
+--- 2323,2341 ----
+    0x00, 0xc0, 0x9f, 0xe5,	/* ldr  ip, [pc] */
+    0x00, 0xf0, 0x9c, 0xe5,	/* ldr  pc, [ip] */
+    0,    0,    0,    0
+  };
+  
++ /* relocation code needs to be dispatched in 2 stages
++  therefore offset is 0
++ */
++ static const unsigned char jmp_riscv64_bytes[] =
++ {
++  0x97, 0x03, 0x00, 0x00, /* auipc t2, imm20 */
++  0x67, 0x80, 0x03, 0x00, /* jalr zero, t2, imm12 */
++ };
++ 
+  
+  static bfd *
+  make_one (def_file_export *exp, bfd *parent, bool include_jmp_stub)
+  {
+    asection *tx, *id7, *id5, *id4, *id6;
+***************
+*** 2381,2390 ****
+--- 2400,2413 ----
+  	  break;
+  	case PE_ARCH_aarch64:
+  	  jmp_bytes = jmp_aarch64_bytes;
+  	  jmp_byte_count = sizeof (jmp_aarch64_bytes);
+  	  break;
++ 	case PE_ARCH_riscv64:
++ 	  jmp_bytes = jmp_riscv64_bytes;
++ 	  jmp_byte_count = sizeof (jmp_riscv64_bytes);
++ 	  break;
+  	default:
+  	  abort ();
+  	}
+      }
+  
+***************
+*** 2475,2484 ****
+--- 2498,2511 ----
+  	  quick_reloc (abfd, 8, BFD_RELOC_32, 2);
+  	  break;
+  	case PE_ARCH_aarch64:
+  	  quick_reloc (abfd, 0, BFD_RELOC_AARCH64_ADR_HI21_NC_PCREL, 2);
+  	  quick_reloc (abfd, 4, BFD_RELOC_AARCH64_ADD_LO12, 2);
++ 	  break;
++ 	case PE_ARCH_riscv64:
++ 	  quick_reloc (abfd, 1, BFD_RELOC_12_PCREL, 3);
++ 	  quick_reloc (abfd, 6, BFD_RELOC_RISCV_JMP, 2);
+  	  break;
+  	default:
+  	  abort ();
+  	}
+        save_relocs (tx);
+*** /dev/null	Thu Jan  1 01:00:00 1970
+--- ld/pep-dll-riscv64.c	Wed Jul  3 16:14:01 2024
+***************
+*** 0 ****
+--- 1,23 ----
++ /* Tiny wrapper over pep-dll.c
++    Copyright (C) 2024 Free Software Foundation, Inc.
++ 
++    This file is part of the GNU Binutils.
++ 
++    This program is free software; you can redistribute it and/or modify
++    it under the terms of the GNU General Public License as published by
++    the Free Software Foundation; either version 3 of the License, or
++    (at your option) any later version.
++ 
++    This program is distributed in the hope that it will be useful,
++    but WITHOUT ANY WARRANTY; without even the implied warranty of
++    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++    GNU General Public License for more details.
++ 
++    You should have received a copy of the GNU General Public License
++    along with this program; if not, write to the Free Software
++    Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston,
++    MA 02110-1301, USA.  */
++ 
++ #define COFF_WITH_peRiscV64
++ 
++ #include "pep-dll.c"
