@@ -1,8 +1,8 @@
 #!/bin/bash
 
-mingw_version="11.0.1"
-binutils_version="2.41"
-gcc_version="13.2.0"
+mingw_version="12.0.0"
+binutils_version="2.42"
+gcc_version="14.1.0"
 
 default_stages=(binutils mingw gcc mingw-crt)
 
