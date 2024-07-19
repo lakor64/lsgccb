@@ -6,6 +6,7 @@ run_stage()
 {
     download_file https://ftp.gnu.org/gnu/gcc/gcc-${gcc_version}/gcc-${gcc_version}.tar.gz gcc-${gcc_version}.tar.gz
     extract_tar gcc-${gcc_version}.tar.gz gcc-${gcc_version}
+    apply_patches gcc-${gcc_version}
 
     cd $blddir/$target/$stage/
 
@@ -14,7 +15,7 @@ run_stage()
             --prefix="${bindir}${target}/" \
             --target="$triplet" \
             --with-sysroot="${bindir}${target}" \
-            --with-pkgversion="lakor's shitty gcc builds" \
+            --with-pkgversion="lakor's shitty! compilers builds" \
             --with-bugurl="https://github.com/lakor64/lsgccb" \
             --enable-languages=c,c++ \
             --disable-multilib \

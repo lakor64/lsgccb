@@ -6,6 +6,7 @@ run_stage()
 {
     download_file https://ftp.gnu.org/gnu/binutils/binutils-${binutils_version}.tar.gz binutils-${binutils_version}.tar.gz
     extract_tar binutils-${binutils_version}.tar.gz binutils-${binutils_version}
+    apply_patches binutils-${binutils_version}
 
     cd $blddir/$target/$stage/
 
@@ -14,7 +15,7 @@ run_stage()
             --prefix="${bindir}${target}/" \
             --target="$triplet" \
             --with-sysroot="${bindir}${target}" \
-            --with-pkgversion="lakor's shitty gcc builds" \
+            --with-pkgversion="lakor's shitty! compilers builds" \
             --with-bugurl="https://github.com/lakor64/lsgccb" \
             --disable-multilib \
             --disable-werror \
