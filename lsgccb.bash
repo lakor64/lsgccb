@@ -1,22 +1,54 @@
 #!/bin/bash
 
-# lsgccb bootstrap code
+# --- globals setup ---
+
+root="${BASH_SOURCE[0]}"
+root="$(realpath -ms "$root")"
+root="$(dirname "$root")/"
+bindir=${root}bin/
+blddir=${root}build/
+distdir=${root}dist/
+patchdir=${root}comp/patches/
+cpucount=5
+
+
+# --- utility functions ---
 
 print_valid_targets()
 {
-    out=$( ls -a ${root}comp/target/*.bash )
-    #out=${out%.bash}
-    #out=${out#comp/target/}
-    echo $out
+    for entry in "${root}comp/target"/*.bash
+    do
+        out=${entry%.bash*}
+        out=${out#*comp/target/}
+        echo $out
+    done
 }
 
 print_valid_stages()
 {
-    out=$( ls -a ${root}comp/stages/*.bash )
-    #out=${out%.bash}
-    #out=${out#comp/stages/}
+    for entry in "${root}comp/stages"/*.bash
+    do
+        out=${entry%.bash*}
+        out=${out#*comp/stages/}
+        echo $out
+    done
+    echo "(Use \`all\` to include all of them)"
+}
+
+add_all_stages()
+{
+    out=""
+    for entry in "${root}comp/stages"/*.bash
+    do
+        x=${entry%.bash*}
+        x=${x#*comp/stages/}
+        out="$out,$x"
+    done
+    out=${out/,/$null}
     echo $out
 }
+
+# --- main bootstrap ---
 
 # print arguments
 if ! [[ $1 ]]; then
@@ -31,7 +63,7 @@ if ! [[ $1 ]]; then
 fi
 
 # target check
-if ! [[ -e comp/target/$1.bash ]]; then
+if ! [[ -e "comp/target/$1.bash" ]]; then
     echo "Invalid target \[$1\], please specify a valid target"
     echo
     echo "Valid targets are:"
@@ -44,11 +76,17 @@ target=${1}
 # load target!
 source "${root}comp/target/${target}.bash"
 
-if [[ $2 ]]; then
-	IFS=', ' read -r -a stages <<< "$2"
-	
-	for element in $stages
-	do	
+# stages check
+if [[ $2 ]];  then
+    stages_input=$2
+    if [ "$2" = "all" ]; then
+        stages_input="$(add_all_stages)"
+    fi
+    
+    IFS=',' read -r -a stages <<< "$stages_input"
+
+	for element in ${stages[@]}
+	do
 		if ! [[ -e comp/stages/$element.bash ]]; then
 			echo "Invalid stage [$element], please specify a valid stage"
 			echo
@@ -60,14 +98,6 @@ if [[ $2 ]]; then
 else
 	stages=${default_stages[@]}
 fi
-
-root="${BASH_SOURCE[0]}"
-root="$(realpath -ms "$root")"
-root="$(dirname "$root")/"
-bindir=${root}bin/
-blddir=${root}build/
-distdir=${root}dist/
-cpucount=5
 
 if [[ $BINDIR ]]; then
     bindir=$BINDIR
