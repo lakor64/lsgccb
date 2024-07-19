@@ -5,10 +5,14 @@
 root="${BASH_SOURCE[0]}"
 root="$(realpath -ms "$root")"
 root="$(dirname "$root")/"
-bindir=${root}bin/
-blddir=${root}build/
-distdir=${root}dist/
-patchdir=${root}comp/patches/
+bin_dir="${root}bin/"
+build_dir="${root}build/"
+dist_dir="${root}dist/"
+patch_dir="${root}comp/patches/"
+tar_dir="${dist_dir}downloads/"
+target_dir="${root}comp/target/"
+stages_dir="${root}comp/stages/"
+cache_dir=""
 cpucount=5
 
 
@@ -16,21 +20,21 @@ cpucount=5
 
 print_valid_targets()
 {
-    for entry in "${root}comp/target"/*.bash
+    for entry in "$target_dir"/*.bash
     do
         out=${entry%.bash*}
-        out=${out#*comp/target/}
-        echo $out
+        out=${out#*comp/target//}
+        echo "$out"
     done
 }
 
 print_valid_stages()
 {
-    for entry in "${root}comp/stages"/*.bash
+    for entry in "$stages_dir"/*.bash
     do
         out=${entry%.bash*}
-        out=${out#*comp/stages/}
-        echo $out
+        out=${out#*comp/stages//}
+        echo "$out"
     done
     echo "(Use \`all\` to include all of them)"
 }
@@ -38,21 +42,21 @@ print_valid_stages()
 add_all_stages()
 {
     out=""
-    for entry in "${root}comp/stages"/*.bash
+    for entry in "$stages_dir"/*.bash
     do
         x=${entry%.bash*}
-        x=${x#*comp/stages/}
+        x=${x#*comp/stages//}
         out="$out,$x"
     done
     out=${out/,/$null}
-    echo $out
+    echo "$out"
 }
 
 # --- main bootstrap ---
 
 # print arguments
 if ! [[ $1 ]]; then
-    echo "Usage: ${BASH_SOURCE[0]} [target] (stage)"
+    echo "Usage: ${BASH_SOURCE[0]} [target] [stage]"
     echo
     echo "Available targets:"
     print_valid_targets
@@ -74,7 +78,7 @@ fi
 target=${1}
 
 # load target!
-source "${root}comp/target/${target}.bash"
+source "$target_dir${target}.bash"
 
 # stages check
 if [[ $2 ]];  then
@@ -85,9 +89,9 @@ if [[ $2 ]];  then
     
     IFS=',' read -r -a stages <<< "$stages_input"
 
-	for element in ${stages[@]}
+	for element in "${stages[@]}"
 	do
-		if ! [[ -e comp/stages/$element.bash ]]; then
+		if ! [[ -e "comp/stages/$element.bash" ]]; then
 			echo "Invalid stage [$element], please specify a valid stage"
 			echo
 			echo "Valid stages are:"
@@ -96,32 +100,36 @@ if [[ $2 ]];  then
 		fi
 	done
 else
-	stages=${default_stages[@]}
+    echo "No stages specified!"
+    echo
+    echo "Valid stages are:"
+    print_valid_stages
+    exit 1
 fi
 
 if [[ $BINDIR ]]; then
-    bindir=$BINDIR
+    bin_dir=$BINDIR
 fi
 if [[ $BUILDDIR ]]; then
-    blddir=$BUILDDIR
+    build_dir=$BUILDDIR
 fi
 if [[ $DISTDIR ]]; then
-    distdir=$DISTDIR
+    dist_dir=$DISTDIR
 fi
 if [[ $CPUCOUNT ]]; then
     cpucount=$CPUCOUNT
 fi
 
-echo Output dir: \[${bindir}\]
-echo Build dir: \[${blddir}\]
-echo Dist dir: \[${distdir}\]
-echo Target: \[${target}\]
-echo Stages: \[${stages[@]}\]
-echo CPU count: \[${cpucount}\]
+echo "Output dir: [" "$bin_dir" "]"
+echo "Build dir: [" "$build_dir" "]"
+echo "Dist dir: [" "$dist_dir" "]"
+echo "Target: [" "$target" "]"
+echo "Stages: [" "${stages[@]}" "]"
+echo "CPU count: [" "$cpucount" "]"
 
 if ! [[ $QUIET ]]; then
     echo Are this settings correct? \[yes/no\]
-    read option
+    read -r option
     case $option in
         "no"|"n")
             echo Please adjust the variables accordingly
@@ -138,14 +146,17 @@ fi
 
 clear
 
-mkdir -p ${distdir}
-mkdir -p ${bindir}/${target}
+mkdir -p "${tar_dir}"
+mkdir -p "${dist_dir}"
+mkdir -p "${bin_dir}${target}"
 
 source "${root}comp/utils.bash"
 
-for stage in $stages
+for stage in "${stages[@]}"
 do
-    mkdir -p ${blddir}/${target}/${stage}/
-    source "${root}comp/stages/${stage}.bash"
+    mkdir -p "${build_dir}${target}/${stage}/"
+    source "${stages_dir}${stage}.bash"
+    cache_dir="${dist_dir}${stage_target}-cache/"
+    mkdir -p "${cache_dir}"
     run_stage
 done

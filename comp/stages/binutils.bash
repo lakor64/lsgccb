@@ -1,20 +1,27 @@
 #!/bin/bash
 
-# binutils download and extract
+stage_target="binutils-${binutils_version}"
+target_dist="${dist_dir}${stage_target}/"
 
 run_stage()
 {
-    download_file https://ftp.gnu.org/gnu/binutils/binutils-${binutils_version}.tar.gz binutils-${binutils_version}.tar.gz
-    extract_tar binutils-${binutils_version}.tar.gz binutils-${binutils_version}
-    apply_patches binutils-${binutils_version}
+    download_file "https://ftp.gnu.org/gnu/binutils/${stage_target}.tar.gz" "binutils-${binutils_version}.tar.gz"
+    extract_tar "${stage_target}.tar.gz"
+    apply_patches
 
-    cd $blddir/$target/$stage/
+    if ! [[ -e "${cache_dir}bfdconf" ]] ; then
+        cd "${target_dist}bfd" || exit 4
+        autoconf
+        echo "OK" > "${cache_dir}bfdconf"
+    fi
+
+    cd "$build_dir/$target/$stage/" || exit 4
 
     if ! [[ -e Makefile ]] ; then
-        if ! "${distdir}binutils-${binutils_version}/configure" \
-            --prefix="${bindir}${target}/" \
+        if ! "${target_dist}/configure" \
+            --prefix="${bin_dir}${target}/" \
             --target="$triplet" \
-            --with-sysroot="${bindir}${target}" \
+            --with-sysroot="${bin_dir}${target}" \
             --with-pkgversion="lakor's shitty! compilers builds" \
             --with-bugurl="https://github.com/lakor64/lsgccb" \
             --disable-multilib \
@@ -23,11 +30,11 @@ run_stage()
             --enable-plugins \
             --with-zlib=yes \
             --disable-nls \
-			${binutils_extra} ; then
+			"${binutils_extra}" ; then
 			exit 2
 		fi
 	fi
-	if ! make all -j$cpucount; then
+	if ! make all "-j$cpucount"; then
 		exit 3
 	fi
     if ! make install; then
