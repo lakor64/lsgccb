@@ -34,9 +34,11 @@ run_stage()
 			exit 2
 		fi
 	fi
-	if ! make all "-j$cpucount"; then
+
+	if ! make all -j"$cpucount"; then
 		exit 3
 	fi
+    
     if ! make install; then
 		exit 4
 	fi

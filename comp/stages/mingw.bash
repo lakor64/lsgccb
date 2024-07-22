@@ -1,29 +1,33 @@
 #!/bin/bash
+# mingw64 headers
 
-# mingw64 headers download and extract
+stage_target="mingw-w64-${mingw_version}"
+target_dist="${dist_dir}${stage_target}/"
 
 run_stage()
 {
-    download_file https://sourceforge.net/projects/mingw-w64/files/mingw-w64/mingw-w64-release/mingw-w64-v${mingw_version}.tar.bz2/download mingw-w64-v${mingw_version}.tar.bz2
-    extract_tar mingw-w64-v${mingw_version}.tar.bz2 mingw-w64-v${mingw_version}
+    download_file "https://sourceforge.net/projects/mingw-w64/files/mingw-w64/mingw-w64-release/mingw-w64-v${mingw_version}.tar.bz2/download" "mingw-w64-v${mingw_version}.tar.bz2"
+    extract_tar "mingw-w64-v${mingw_version}.tar.bz2"
 
-    cd $blddir/$target/$stage/
+    cd "$build_dir/$target/$stage/"
 
     if ! [[ -e Makefile ]] ; then
-        if ! "${distdir}mingw-w64-v${mingw_version}/configure" \
-            --prefix="${bindir}${target}/" \
+        if ! "${target_dist}/configure" \
+            --prefix="${bin_dir}${target}/" \
             --target="$triplet" \
-            --with-sysroot="${bindir}${target}" \
-			--without-crt \
-            ${mingw_extra} ; then
-				exit 2
-		fi
+            --with-sysroot="${bin_dir}${target}" \
+    			  --without-crt \
+            "${mingw_extra}" ; then
+				  exit 2
+		    fi
     fi
-    if make all -j$cpucount; then
-		exit 3
-	fi
+
+    if make all -j"$cpucount"; then
+	  	exit 3
+  	fi
+    
     if make install; then
-		exit 4
-	fi
+		  exit 4
+	  fi
 }
 
